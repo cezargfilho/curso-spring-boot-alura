@@ -124,7 +124,7 @@ Para o entendimento deste trecho, segue os seguintes passos:
 * Voltando ao trecho de código, a chamada do método `.passwordEncoder(new  BCryptPasswordEncoder()` é necessário apenas para validar a senha passada do usuário.
 > Não é necessário realizar esta verificação de forma explícita pela razão da classe **AutenticacaoService** implementar **UserDetailsService**, e a classe **Usuario** implementar **UserDetails**.
 
-### 3.1 Autenticação via Token:
+### 3.3 Autenticação via Token:
 Como a aplicação segue os princípios REST, deve-se mudar a autenticação de Sessão, para Stateless.
 Foi utilizado o padrão JSON Web Token por meio da biblioteca Java, **JJWT**.
 * Modificações necessárias: Deletar o trecho `.and().formLogin()`, que representa a criação de sessão, e adicionar as demais chamadas de métodos.
@@ -173,7 +173,60 @@ Foi utilizado o padrão JSON Web Token por meio da biblioteca Java, **JJWT**.
 * Para retornar o objeto`UsernamePasswordAuthenticationToken login = form.converter();` foi implementado o um conversor na classe **LoginForm**:
 ````java
 public UsernamePasswordAuthenticationToken converter() {
-		return new UsernamePasswordAuthenticationToken(this.email, this.senha);
+	return new UsernamePasswordAuthenticationToken(this.email, this.senha);
 	}
 ````
-* Por fim se mostra necessário a criação de uma classe(TokenService) para a geração do *Token* utilizando a biblioteca **JJWT**.
+* Por fim se mostra necessário a criação de uma classe (TokenService) para a geração do *Token* utilizando a biblioteca **JJWT**.
+	* Nesta classe criamos o método ***gerarToken(Authentication authentication)*** que contém a lógica a seguir:
+````java
+public String gerarToken(Authentication authentication) {
+		Usuario logado = (Usuario) authentication.getPrincipal();
+		Date hoje = new Date();
+		Date dataExpiracao = new Date(hoje.getTime() + Long.parseLong(expiration));
+
+		return Jwts.builder()
+				.setIssuer("API do Forum da Alura") 	// Quem fez a geracao do Token
+				.setSubject(logado.getId().toString()) 	// Usuario dono do token
+				.setIssuedAt(hoje) 						// Data de criacao
+				.setExpiration(dataExpiracao)			// Data expiracao
+				.signWith(SignatureAlgorithm.HS256, secret) // Senha com criptografia
+				.compact(); 
+	}
+````
+* Voltando para o *controller* **AutenticacaoController** algumas atualizações devem ser feitas:
+	* A criação de uma classe TokenDto, para o retorno do *token* e do tipo de token;
+	* Modificação da assinatura do método para o retorno`ResponseEntity<TokenDto>` ;
+	* Modificação do retorno para `return ResponseEntity.ok(new TokenDto(token, "Bearer"));`, já que o objetivo é retornar o token e tipo, que neste caso é *Bearer*;
+* Como já é possível retornar para o cliente o Token, agora o objetvo é tratar o recebimento deste token via *Header* da requisição:
+	* Cria-se a classe **AutenticacaoTokenFilter**, que terá essa responsabilidade;
+	* Extende a classe de filtro do *Spring* : `extends OncePerRequestFilter` e sobrescreve o método `doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)`;
+		* Dentro deste método é feita a lógica de validação do token;
+		* O trecho `filterChain.doFilter(request, response);` representa que terminamos a autenticação e pode-se dar seguimento para a próxima etapa;
+	* Para que o Filtro criado seja visualizado pelo *Spring*, deve-se explicitar-lo no método `configure(HttpSecurity http)`:
+````java
+// após a declaração de uso do modelo Stateless
+.and().addFilterBefore(new AutenticacaoTokenFilter(), UsernamePasswordAuthenticationFilter.class);
+// UsernamePasswordAuthenticationFilter é o filtro padrão do Spring e é executado antes do novo filtro
+````
+#### - Validando Token:
+* Na classe **TokenService** o método *isTokenValido( )* será o responsável por esta validação:
+````java
+public boolean isTokenValido(String token) {
+		try {
+			Jwts.parser().setSigningKey(this.secret).parseClaimsJws(token);
+			return true;
+		} catch (Exception e) {
+			return false;
+		}
+	}
+````
+> `this.secret` é a chave utilizada para criptografar e descriptografar
+* Já na classe de filtro, **AutenticacaoTokenFilter**, chamaremos esse método logo após a recuperação do *token*:
+````java
+boolean valido = tokenService.isTokenValido(token);
+````
+> Mas como a classe **TokenService** é gerenciada pelo *Spring* temos que fazer a injeção dela em algum lugar.
+* Realizando a injeção da classe TokenService:
+	* A classe **SecurityConfiguration** é a classe perfeita, pois nela é inicializada o filtro, desta forma precisa-se apenas:
+		*  A criação de um atributo injetado `@Autowired	private TokenService tokenService;`.
+		* Recebimento deste atributo via construtor pelo filtro `new AutenticacaoTokenFilter(tokenService)`.
