@@ -230,3 +230,16 @@ boolean valido = tokenService.isTokenValido(token);
 	* A classe **SecurityConfiguration** é a classe perfeita, pois nela é inicializada o filtro, desta forma precisa-se apenas:
 		*  A criação de um atributo injetado `@Autowired	private TokenService tokenService;`.
 		* Recebimento deste atributo via construtor pelo filtro `new AutenticacaoTokenFilter(tokenService)`.
+
+####  Autenticando Cliente:
+Para a autenticação cria-se mais um método `autenticarCliente(token);`:
+````java
+private void autenticarCliente(String token) {
+		Long idUsuario = tokenService.getUsuarioId(token);
+		Usuario usuario = usuarioRepository.findById(idUsuario).get();
+		UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(usuario, null,
+				usuario.getAuthorities());
+		SecurityContextHolder.getContext().setAuthentication(authentication);
+	}
+````
+> *usuarioRepository* é um atributo da classe, igual ao *tokenService* e deve ser injetado na instanciação da classe em **SecurityConfiguration**, desta forma o *Spring* consegue enxergá-lo
