@@ -123,3 +123,57 @@ Para o entendimento deste trecho, segue os seguintes passos:
 	* A lógica do método é simples para este caso, apenas é realizado uma busca utilizando o parâmetro *username* e checado o retorno da busca contém o `Optional<Usuario>`.
 * Voltando ao trecho de código, a chamada do método `.passwordEncoder(new  BCryptPasswordEncoder()` é necessário apenas para validar a senha passada do usuário.
 > Não é necessário realizar esta verificação de forma explícita pela razão da classe **AutenticacaoService** implementar **UserDetailsService**, e a classe **Usuario** implementar **UserDetails**.
+
+### 3.1 Autenticação via Token:
+Como a aplicação segue os princípios REST, deve-se mudar a autenticação de Sessão, para Stateless.
+Foi utilizado o padrão JSON Web Token por meio da biblioteca Java, **JJWT**.
+* Modificações necessárias: Deletar o trecho `.and().formLogin()`, que representa a criação de sessão, e adicionar as demais chamadas de métodos.
+* ````java
+	protected void configure(HttpSecurity http) throws Exception {
+		http.authorizeRequests()
+		.antMatchers(HttpMethod.GET, "/topicos").permitAll()
+		.antMatchers(HttpMethod.GET, "/topicos/*").permitAll()
+		.anyRequest().authenticated()
+		.and().csrf().disable()
+		.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+	}
+	````
+	> `.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)`
+	> Explicita para o Spring Security que não é para criar sessão, pois a autenticação será de maneira Stateless.
+
+* Com o trecho `.and().formLogin()`deletado, perde-se o *controller* padrão do *Spring*, desta forma é necessário criar novas classes para realizar este trabalho.
+* A classe ***AutenticacaoController*** tem o seguinte método:
+````java
+	@PostMapping
+	public ResponseEntity<?> autenticar(@RequestBody @Valid LoginForm form) {
+````
+* A classe **LoginForm** só precisa dos atributos **email** e **senha**.
+* É necessário a injeção do objeto **AuthenticationManager** como atributo neste *controller*, mas o Spring não identifica isso automaticamente. A classe **SecurityConfiguration** por implementar a interface **WebSecurityConfigurerAdapter** possibilita criação do objeto **AuthenticationManager** pelo método sobrescrito:
+````java
+	@Bean
+	@Override
+	protected AuthenticationManager authenticationManager() throws Exception {
+		return super.authenticationManager();
+	}
+````
+* Com o objeto injetado na classe **AutenticacaoController** pode-se seguir para a implementação do método:
+````java
+	@PostMapping
+	public ResponseEntity<?> autenticar(@RequestBody @Valid LoginForm form) {
+		UsernamePasswordAuthenticationToken login = form.converter();
+		try {
+			Authentication authentication = authManager.authenticate(login);
+			String token = tokenService.gerarToken(authentication);
+			return  ResponseEntity.ok().build();
+		} catch (AuthenticationException e) {
+			return ResponseEntity.badRequest().build();
+		}
+	}
+````
+* Para retornar o objeto`UsernamePasswordAuthenticationToken login = form.converter();` foi implementado o um conversor na classe **LoginForm**:
+````java
+public UsernamePasswordAuthenticationToken converter() {
+		return new UsernamePasswordAuthenticationToken(this.email, this.senha);
+	}
+````
+* Por fim se mostra necessário a criação de uma classe(TokenService) para a geração do *Token* utilizando a biblioteca **JJWT**.
