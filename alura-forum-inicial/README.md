@@ -242,4 +242,30 @@ private void autenticarCliente(String token) {
 		SecurityContextHolder.getContext().setAuthentication(authentication);
 	}
 ````
-> *usuarioRepository* é um atributo da classe, igual ao *tokenService* e deve ser injetado na instanciação da classe em **SecurityConfiguration**, desta forma o *Spring* consegue enxergá-lo
+> *usuarioRepository* é um atributo da classe, igual ao *tokenService* e deve ser injetado na instanciação da classe em **SecurityConfiguration**, desta forma o *Spring* consegue enxergá-lo.
+
+### Atualização de versão do Spring
+> Atualizar o Spring Boot para a versão 2.3.1 no *pom.xml*.
+
+O módulo de validação do Spring (@Valid) não vem mais no **starter** a partir do 2.3.0, desta forma é necessário adicionar a dependência [spring-boot-starter-validation](https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-validation).
+
+### Segurança com Perfis de usuário
+Sendo necessário a validação não somente por *Token* mas também por perfil de usuário (Ex.: Padrão, Admin), basta adicionar no método `configure(HttpSecurity http)` da classe **SecurityConfiguration** a chamada:
+````java
+.antMatchers(HttpMethod.DELETE ,"/topicos/*").hasRole("MODERADOR")
+````
+Mas existe uma convenção a seguir, na tabela PERFIL o nome do perfil deve seguir o padrão `ROLE_NOME_PERFIL`.
+> Ex.: ROLE_MODERADOR
+
+Desta forma no momento da chamada para o endpoint configurado o *Spring* faz a análise se o *token* pertence a um Usuário deste perfil.
+
+Para teste o arquivo *data.sql* deve receber:
+````sql
+INSERT INTO PERFIL(id, nome) VALUES(1, 'ROLE_ALUNO');
+INSERT INTO PERFIL(id, nome) VALUES(2, 'ROLE_MODERADOR');
+
+INSERT INTO USUARIO_PERFIS(usuario_id, perfis_id) VALUES(1, 1);
+INSERT INTO USUARIO_PERFIS(usuario_id, perfis_id) VALUES(2, 2);
+````
+> Além disso na tabela USUARIO deve ser inserido um moderador.
+
