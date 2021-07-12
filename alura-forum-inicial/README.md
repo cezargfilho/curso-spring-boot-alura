@@ -263,9 +263,18 @@ Para teste o arquivo *data.sql* deve receber:
 ````sql
 INSERT INTO PERFIL(id, nome) VALUES(1, 'ROLE_ALUNO');
 INSERT INTO PERFIL(id, nome) VALUES(2, 'ROLE_MODERADOR');
-
 INSERT INTO USUARIO_PERFIS(usuario_id, perfis_id) VALUES(1, 1);
 INSERT INTO USUARIO_PERFIS(usuario_id, perfis_id) VALUES(2, 2);
 ````
 > Além disso na tabela USUARIO deve ser inserido um moderador.
+
+### Configuração de Profiles
+**@Profiles** é uma anotação que é utilizada para ambientes de execuções.
+
+Quando temos por exemplo, rotinas que não devem ser executadas  em ambiente de produção, podemos criar *Profiles* para distinguir o que executa em ambiente de **desenvolvimento**, **teste** e **produção**.
+
+No caso deste projeto tem-se a autenticação via *token*, que para o ambiente de desenvolvimento é desnecessária, desta forma as classes que fazem parte da rotina de autenticação podem ser anotadas com o *@Profile(value = "nome")*
+
+Uma das formas de explicitar o *profile* que deseja executar é colocando o comando a seguir nas configurações de execução do projeto: 
+* `-Dspring.profiles.active=nomeProfile`
 
