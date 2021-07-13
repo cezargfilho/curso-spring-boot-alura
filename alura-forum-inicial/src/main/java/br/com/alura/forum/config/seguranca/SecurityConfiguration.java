@@ -18,8 +18,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import br.com.alura.forum.repository.UsuarioRepository;
 
 @EnableWebSecurity
-@Configuration
-@Profile(value = "prod")
+@Configuration 
+@Profile(value = {"prod", "test"})
 public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
 
 	@Autowired
